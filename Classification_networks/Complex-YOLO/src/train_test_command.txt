@@ -1,0 +1,7 @@
+TEST_PRETRAINED: python test.py --gpu_idx 0 --pretrained_path ../checkpoints/complexer_yolo/complex_yolov4_mse_loss.pth --cfgfile ./config/cfg/complex_yolov4.cfg --save_test_output 
+TEST_MIO: python test.py --gpu_idx 0 --pretrained_path ../checkpoints/complexer_yolo/Model_complexer_yolo_epoch_300.pth --cfgfile ./config/cfg/complex_yolov4.cfg --save_test_output
+
+TRAIN: python train.py --gpu_idx 0 --batch_size 4 --checkpoint_freq 10
+TENSORBOARD: tensorboard --logdir=./
+
+EVALUATION: python evaluate.py --gpu_idx 0 --pretrained_path "D:\Nicolas\Posgrado\Trabajos y Tesis\LIDAR\LIDAR_super_resolution\Complex-YOLO\checkpoints\complexer_yolo\Model_complexer_yolo_epoch_300.pth" --cfgfile ./config/cfg/complex_yolov4.cfg
