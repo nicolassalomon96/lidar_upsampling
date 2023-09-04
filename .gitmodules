@@ -1,0 +1,3 @@
+[submodule "PointPillars"]
+	path = PointPillars
+	url = https://github.com/zhulf0804/PointPillars.git
