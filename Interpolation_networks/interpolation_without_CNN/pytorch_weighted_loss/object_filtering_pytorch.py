@@ -41,10 +41,10 @@ def transform_3dbox_to_pointcloud(dimension, location, rotation):
     :return: transformed coordinates
     """
     height, width, length = dimension
-    x_offset = torch.tensor(0.0) #length/4 #torch.tensor(0.0)
-    y_offset = torch.tensor(0.38) #torch.tensor(0.4) #El valor 0.38 se colocó a mano. Al generar las imágenes de rango con el algoritmo que elimina las compensaciones de 
+    x_offset = length/4 #torch.tensor(0.0)
+    y_offset = torch.tensor(0.4) #El valor 0.4 se colocó a mano. Al generar las imágenes de rango con el algoritmo que elimina las compensaciones de 
                                                      #movimiento de Kitti, la nube de puntos reestablecida esta un poco más arriba en el eje z
-    z_offset = torch.tensor(0.0)# width/4 #torch.tensor(0.0)
+    z_offset = width/4 #torch.tensor(0.0)
 
     x, y, z = location
 
@@ -154,24 +154,33 @@ def pointcloud_filter(pointcloud, labels_path):
         non_labeled_points = get_outer_points(pointcloud[idx], filtered_points)
         non_labeled_pointclouds.append(non_labeled_points)
 
-    #print(len(label_data))
-    #print(len(label_data[0]))
-    #print(pointcloud[0].shape, non_labeled_pointclouds[0].shape, filtered_pointcloud[0].shape)
+    print(pointcloud[0].max())
+    print(pointcloud[0].shape, filtered_pointcloud[0].shape, non_labeled_pointclouds[0].shape)
+    print(labels_path)
     return non_labeled_pointclouds, filtered_pointcloud
     
 if __name__ == "__main__":
 
         dataset_path = r'D:\Nicolas\Posgrado\Trabajos y Tesis\LIDAR\Datasets LIDAR\kitti\kitti_3d_object\training'
-        pointcloud_fullpath = dataset_path + r'\velodyne\000010.bin'
-        labels_path_1 = dataset_path + r'\label_2\000010.txt'
+        pointcloud_fullpath = dataset_path + r'\velodyne\001431.bin' #000010.bin
+        labels_path_1 = dataset_path + r'\label_2\001431.txt'
         pointcloud = read_bin(pointcloud_fullpath)
-        range_image = pointcloud_to_range_image(pointcloud, size=(64, 2048), filter_ego_compensed=False)
+        range_image = pointcloud_to_range_image(pointcloud, size=(64, 1024))
+        
+        #Para que coincidan los resultados con el generador (data_gen_distance) es necesario filtrar las imágenes de rango como sigue y colocar augment = False en el generador:
+        #Replace all sub-zero and upper max values because it is impossible in range images
+        range_image[range_image < kitti_carla_min_range] = 0.0
+        range_image[range_image > kitti_max_distance] = 0.0
         range_image = torch.from_numpy(range_image).unsqueeze(0) #[batch, channel, height, width]
 
-        pointcloud_fullpath_2 = dataset_path + r'\velodyne\000035.bin'
-        labels_path_2 = dataset_path + r'\label_2\000035.txt'
+        pointcloud_fullpath_2 = dataset_path + r'\velodyne\001636.bin'
+        labels_path_2 = dataset_path + r'\label_2\001636.txt'
         pointcloud_2 = read_bin(pointcloud_fullpath_2)
-        range_image_2 = pointcloud_to_range_image(pointcloud_2, size=(64, 2048), filter_ego_compensed=False)
+        range_image_2 = pointcloud_to_range_image(pointcloud_2, size=(64, 1024))
+        
+        #Replace all sub-zero and upper max values because it is impossible in range images
+        range_image_2[range_image_2 < kitti_carla_min_range] = 0.0
+        range_image_2[range_image_2 > kitti_max_distance] = 0.0
         range_image_2 = torch.from_numpy(range_image_2).unsqueeze(0) #[batch, channel, height, width]
 
         range_image_batch = torch.stack((range_image, range_image_2), dim=0) #[batch, channels, height, width] [2,1,64,2048]
@@ -181,15 +190,11 @@ if __name__ == "__main__":
         pointcloud_batch = range_image_to_pointcloud_pytorch(range_image_batch.to(device), device='cuda') #[batch, num_points, 4]
         non_filtered_points, filtered_points = pointcloud_filter(pointcloud_batch, labels_path)
 
-        #print(len(filtered_points), len(non_filtered_points))
-        #print(filtered_points[0].shape, non_filtered_points[0].shape)
-        #print(filtered_points[1].shape, non_filtered_points[1].shape)
+        save_path = r'D:\Nicolas\puntos_filtrados_1.ply'
+        save_ply(filtered_points[0].detach().cpu().numpy(), save_path)
 
-        #save_path = r'D:\Nicolas\puntos_filtrados.ply'
-        #save_ply(filtered_points[0].detach().cpu().numpy(), save_path)
+        save_path_or = r'D:\Nicolas\puntos_originales_1.ply'
+        save_ply(pointcloud_batch[0].detach().cpu().numpy(), save_path_or)
 
-        #save_path_or = r'D:\Nicolas\puntos_originales.ply'
-        #save_ply(pointcloud_batch[0].detach().cpu().numpy(), save_path_or)
-
-        #save_path_or = r'D:\Nicolas\puntos_sin_filtrar.ply'
-        #save_ply(non_filtered_points[0].detach().cpu().numpy(), save_path_or)
+        save_path_or = r'D:\Nicolas\puntos_sin_filtrar_1.ply'
+        save_ply(non_filtered_points[0].detach().cpu().numpy(), save_path_or)

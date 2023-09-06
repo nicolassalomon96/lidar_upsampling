@@ -82,7 +82,7 @@ def data_augmentation(lrimg, hrimg, dataset=None, augment=True):
 
 
 def train_data_generator():
-    augment = True
+    augment = False
     np.random.shuffle(train_urls)
 
     for _, url in enumerate(train_urls):

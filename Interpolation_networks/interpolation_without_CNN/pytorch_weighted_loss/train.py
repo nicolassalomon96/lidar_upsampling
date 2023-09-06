@@ -91,20 +91,19 @@ class ChamferLoss(nn.Module):
         """
         pointcloud_pred = range_image_to_pointcloud_pytorch(image_pred * kitti_max_distance, device) #[batch, num_points, 4]
         pointcloud_gt = range_image_to_pointcloud_pytorch(image_gt * kitti_max_distance, device) #[batch, num_points, 4]
-       
-        #pointcloud_np_pred_filtered, pointcloud_np_pred_non_filtered = pointcloud_filter(pointcloud_pred.numpy(), label_path)
-        pointcloud_pred_non_filtered, pointcloud_pred_filtered = pointcloud_filter(pointcloud_pred, label_path)
+        print(pointcloud_gt[0].shape)
+        #pointcloud_pred_non_filtered, pointcloud_pred_filtered = pointcloud_filter(pointcloud_pred, label_path)
+        pointcloud_gt_non_filtered, pointcloud_gt_filtered = pointcloud_filter(pointcloud_gt, label_path)
         
-        print(pointcloud_pred.shape)
-        print(pointcloud_pred_filtered[0])
-        print(pointcloud_pred_non_filtered[0].shape)
-        print(label_path)
+        save_path = r'D:\Nicolas\puntos_filtrados_train.ply'
+        save_ply(pointcloud_gt_filtered[0].detach().cpu().numpy(), save_path)
 
-        #save_path = r'D:\Nicolas\a.ply'
-        #save_ply(pointcloud_pred_filtered[0].detach().cpu().numpy(), save_path)
+        save_path_or = r'D:\Nicolas\puntos_originales_train.ply'
+        save_ply(pointcloud_gt[0].detach().cpu().numpy(), save_path_or)
 
-        #save_path_or = r'D:\Nicolas\puntos_originales.ply'
-        #save_ply(pointcloud_batch[0].detach().cpu().numpy(), save_path_or)
+        save_path_or = r'D:\Nicolas\puntos_sin_filtrar_train.ply'
+        save_ply(pointcloud_gt_non_filtered[0].detach().cpu().numpy(), save_path_or)
+
 
         sys.exit()
 
@@ -185,10 +184,12 @@ def train_one_epoch(epoch_index, new_pixel_coords):
         pixels = torch.flatten(pixels)
         pixels = pixels.view(lrimgs.shape[0], lrimgs.shape[1], -1, lrimgs.shape[-1])  
         
-        real_pixels = hrimgs[:,:,1:hrimgs.shape[2]-1:2, :hrimgs.shape[3]]
+        pred_image = torch.clone(hrimgs)
+        pred_image[:,:,1:pred_image.shape[2]-1:2, :pred_image.shape[3]] = pixels
 
         # Compute the loss and its gradients
-        loss = loss_fn(pixels, real_pixels, labels_path)
+        #loss = loss_fn(pixels, real_pixels, labels_path)
+        loss = loss_fn(pred_image, hrimgs, labels_path)
         #print(loss)
 
         loss.backward()
