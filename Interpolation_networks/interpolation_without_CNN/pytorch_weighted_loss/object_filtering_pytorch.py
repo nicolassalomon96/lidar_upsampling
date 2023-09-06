@@ -154,9 +154,9 @@ def pointcloud_filter(pointcloud, labels_path):
         non_labeled_points = get_outer_points(pointcloud[idx], filtered_points)
         non_labeled_pointclouds.append(non_labeled_points)
 
-    print(pointcloud[0].max())
-    print(pointcloud[0].shape, filtered_pointcloud[0].shape, non_labeled_pointclouds[0].shape)
-    print(labels_path)
+    #print(pointcloud[0].max())
+    #print(pointcloud[0].shape, filtered_pointcloud[0].shape, non_labeled_pointclouds[0].shape)
+    #print(labels_path)
     return non_labeled_pointclouds, filtered_pointcloud
     
 if __name__ == "__main__":

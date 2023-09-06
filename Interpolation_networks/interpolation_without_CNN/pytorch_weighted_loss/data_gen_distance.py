@@ -18,9 +18,9 @@ np.random.shuffle(rand_velo)
 train_urls = rand_velo[:train_n]
 valid_urls = rand_velo[train_n:]
 
-#print(f'Total velodyne images: {len(velodyne_name)}')
-#print(f'Train velodyne images: {len(train_urls)}')
-#print(f'Validation velodyne images: {len(valid_urls)}')
+print(f'Total velodyne images: {len(velodyne_name)}')
+print(f'Train velodyne images: {len(train_urls)}')
+print(f'Validation velodyne images: {len(valid_urls)}')
 
 def data_augmentation(lrimg, hrimg, dataset=None, augment=True):
 
@@ -82,7 +82,7 @@ def data_augmentation(lrimg, hrimg, dataset=None, augment=True):
 
 
 def train_data_generator():
-    augment = False
+    augment = True
     np.random.shuffle(train_urls)
 
     for _, url in enumerate(train_urls):

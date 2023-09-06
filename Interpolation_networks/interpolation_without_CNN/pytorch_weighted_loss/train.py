@@ -12,7 +12,7 @@ from object_filtering_pytorch import pointcloud_filter
 
 ##################################### VARIABLES #####################################################
 device = "cuda" if torch.cuda.is_available() else "cpu"
-batch_size = 2#512
+batch_size = 500
 lr = 1e-1
 std_percent = 1e-2
 dropout_rate = 0.5
@@ -22,7 +22,8 @@ epoch_number = 0
 EPOCHS = 500
 best_vloss = 1_000_000
 
-writer_path = 'parameters_Rprop_lr_01.txt'
+save_folder = r'D:\Nicolas\Posgrado\Trabajos y Tesis\LIDAR\lidar_upsampling\Interpolation_networks\interpolation_without_CNN\pytorch_weighted_loss\trained_models'
+writer_path = os.path.join(save_folder, r'console_outputs.txt')
 
 ##################################### DATASET - DATALOADER ##########################################
 
@@ -91,34 +92,36 @@ class ChamferLoss(nn.Module):
         """
         pointcloud_pred = range_image_to_pointcloud_pytorch(image_pred * kitti_max_distance, device) #[batch, num_points, 4]
         pointcloud_gt = range_image_to_pointcloud_pytorch(image_gt * kitti_max_distance, device) #[batch, num_points, 4]
-        print(pointcloud_gt[0].shape)
-        #pointcloud_pred_non_filtered, pointcloud_pred_filtered = pointcloud_filter(pointcloud_pred, label_path)
-        pointcloud_gt_non_filtered, pointcloud_gt_filtered = pointcloud_filter(pointcloud_gt, label_path)
+
+        pointcloud_gt_non_filtered, pointcloud_gt_filtered = pointcloud_filter(pointcloud_gt, label_path) #Listas de tamaño [batch_size] con las nubes de puntos
+        pointcloud_pred_non_filtered, pointcloud_pred_filtered = pointcloud_filter(pointcloud_pred, label_path)
         
-        save_path = r'D:\Nicolas\puntos_filtrados_train.ply'
-        save_ply(pointcloud_gt_filtered[0].detach().cpu().numpy(), save_path)
+        #save_path = r'D:\Nicolas\puntos_filtrados_train.ply'
+        #save_ply(pointcloud_gt_filtered[0].detach().cpu().numpy(), save_path)
 
-        save_path_or = r'D:\Nicolas\puntos_originales_train.ply'
-        save_ply(pointcloud_gt[0].detach().cpu().numpy(), save_path_or)
+        #save_path_or = r'D:\Nicolas\puntos_originales_train.ply'
+        #save_ply(pointcloud_gt[0].detach().cpu().numpy(), save_path_or)
 
-        save_path_or = r'D:\Nicolas\puntos_sin_filtrar_train.ply'
-        save_ply(pointcloud_gt_non_filtered[0].detach().cpu().numpy(), save_path_or)
+        #save_path_or = r'D:\Nicolas\puntos_sin_filtrar_train.ply'
+        #save_ply(pointcloud_gt_non_filtered[0].detach().cpu().numpy(), save_path_or)
 
+        #print(type(pointcloud_pred_filtered))
+        #print(len(pointcloud_pred_filtered))
+        #print(len(label_path))
+        #print(pointcloud_pred_filtered[0].shape)
 
-        sys.exit()
+        chamfer_loss_filtered = []
+        chamfer_loss_non_filtered = []
 
-        pointcloud_pred_filtered = torch.from_numpy(pointcloud_np_pred_filtered)
-        pointcloud_pred_non_filtered = torch.from_numpy(pointcloud_np_pred_non_filtered)
-
-        pointcloud_np_gt_filtered, pointcloud_np_get_non_filtered = pointcloud_filter(pointcloud_gt.numpy(), label_path)
-        pointcloud_gt_filtered = torch.from_numpy(pointcloud_np_gt_filtered)
-        pointcloud_gt_non_filtered = torch.from_numpy(pointcloud_np_get_non_filtered)
-
-        chamfer_loss_filtered = kaolin.metrics.pointcloud.chamfer_distance(pointcloud_pred_filtered[:,:,:3].to(self.device), pointcloud_gt_filtered[:,:,:3].to(self.device))
-        chamfer_loss_non_filtered = kaolin.metrics.pointcloud.chamfer_distance(pointcloud_pred_non_filtered[:,:,:3].to(self.device), pointcloud_gt_non_filtered[:,:,:3].to(self.device))
+        for i in range(len(label_path)):
+            # Pointclouds must have dimensions [batch, num_points, 3]
+            chamfer_loss_filtered.append(kaolin.metrics.pointcloud.chamfer_distance(pointcloud_pred_filtered[i][:,:3].unsqueeze(0).to(self.device), pointcloud_gt_filtered[i][:,:3].unsqueeze(0).to(self.device)))
+            chamfer_loss_non_filtered.append(kaolin.metrics.pointcloud.chamfer_distance(pointcloud_pred_non_filtered[i][:,:3].unsqueeze(0).to(self.device), pointcloud_gt_non_filtered[i][:,:3].unsqueeze(0).to(self.device)))
         
+        chamfer_loss_filtered = torch.tensor(chamfer_loss_filtered)
+        chamfer_loss_non_filtered = torch.tensor(chamfer_loss_non_filtered)
+
         chamfer_loss_mean = torch.mean(chamfer_loss_filtered) * 0.7 + torch.mean(chamfer_loss_non_filtered) * 0.3
-
         return chamfer_loss_mean
 
 loss_fn = ChamferLoss(device=device)
@@ -192,6 +195,8 @@ def train_one_epoch(epoch_index, new_pixel_coords):
         loss = loss_fn(pred_image, hrimgs, labels_path)
         #print(loss)
 
+        #loss = torch.autograd.Variable(loss, requires_grad = True)
+        loss.requires_grad = True
         loss.backward()
         
         # Adjust learning weights
@@ -255,7 +260,7 @@ for epoch in range(EPOCHS):
     # Track best performance, and save the model's state
     if avg_vloss < best_vloss:
         best_vloss = avg_vloss
-        model_path = rf'D:\Nicolas\Posgrado\Trabajos y Tesis\LIDAR\LIDAR_super_resolution\Scripts\otras_arquitecturas\3_pytorch_interpolation\mlp_816841_weighted_loss\trained_models\model_Leaky_ReLU_816841_kitti3d_Chamfer_Rprop_ep{epoch_number+1}.pth'
+        model_path = os.path.join(save_folder, rf'model_816841_kitti3d_Chamfer_Rprop_ep{epoch_number+1}.pth')
         torch.save(mlp_net.state_dict(), model_path)
 
     train_parameters.append(f'Epoch {epoch_number + 1} - Train_loss: {avg_loss} - Valid_loss: {avg_vloss} - lr: {optimizer.param_groups[0]["lr"]}')
@@ -263,5 +268,5 @@ for epoch in range(EPOCHS):
 
     epoch_number += 1
 
-model_path = rf'D:\Nicolas\Posgrado\Trabajos y Tesis\LIDAR\LIDAR_super_resolution\Scripts\otras_arquitecturas\3_pytorch_interpolation\mlp_816841_weighted_loss\trained_models\model_Leaky_ReLU_816841_kitti3d_Chamfer_Rprop_ep{epoch_number}.pth'
+model_path = os.path.join(save_folder, rf'model_816841_kitti3d_Chamfer_Rprop_ep{epoch_number}.pth')
 torch.save(mlp_net.state_dict(), model_path)
