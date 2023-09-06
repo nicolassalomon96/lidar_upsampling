@@ -1,7 +1,5 @@
 import sys
 import pandas as pd
-
-sys.path.append(r'D:\Nicolas\Posgrado\Trabajos y Tesis\LIDAR\LIDAR_super_resolution\Scripts\otras_arquitecturas\3_pytorch_interpolation')
 from pointcloud_utils_functions_v2 import *
 
 def removePoints(PointCloud):
