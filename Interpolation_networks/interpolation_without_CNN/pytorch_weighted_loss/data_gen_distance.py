@@ -56,10 +56,10 @@ def data_augmentation(lrimg, hrimg, dataset=None, augment=True):
 
     if augment:
         
-        #Horizontal flip
-        if np.random.uniform() > 0.5:
-            lrimg = cv2.flip(lrimg,1)
-            hrimg = cv2.flip(hrimg,1)
+        #Horizontal flip: it is not used because if you flip the image, the labels stop matching and Chamfer_loss is Nan
+        #if np.random.uniform() > 0.5:
+        #    lrimg = cv2.flip(lrimg,1)
+        #    hrimg = cv2.flip(hrimg,1)
         
         #Vertical flip
         #if np.random.uniform() > 0.5:

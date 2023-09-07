@@ -148,22 +148,26 @@ def pointcloud_filter(pointcloud, labels_path):
     filtered_pointcloud = []
     non_labeled_pointclouds = []
     for idx, corners in enumerate(corners_all):
+        
         filtered_points = filter_points(pointcloud[idx], corners) #Lista donde cada elemento es la nube de puntos filtrada
-        filtered_pointcloud.append(filtered_points)
+        if len(filtered_points) > 0: #Comprobación de que luego de removePoints, existen puntos pertenecientes a objetos en la nube
+            filtered_pointcloud.append(filtered_points)
+        else: #Si no hay puntos, se hace un padding de zeros para que no hayan errores de dimensiones al calcular la función de error
+            filtered_pointcloud.append(torch.zeros((1,4)))
 
         non_labeled_points = get_outer_points(pointcloud[idx], filtered_points)
-        non_labeled_pointclouds.append(non_labeled_points)
+        if len(non_labeled_points) > 0: #Comprobación de que luego de removePoints, existen puntos pertenecientes a objetos en la nube
+            non_labeled_pointclouds.append(non_labeled_points)
+        else:
+            non_labeled_pointclouds.append(torch.zeros((1,4)))
 
-    #print(pointcloud[0].max())
-    #print(pointcloud[0].shape, filtered_pointcloud[0].shape, non_labeled_pointclouds[0].shape)
-    #print(labels_path)
     return non_labeled_pointclouds, filtered_pointcloud
     
 if __name__ == "__main__":
 
         dataset_path = r'D:\Nicolas\Posgrado\Trabajos y Tesis\LIDAR\Datasets LIDAR\kitti\kitti_3d_object\training'
-        pointcloud_fullpath = dataset_path + r'\velodyne\001431.bin' #000010.bin
-        labels_path_1 = dataset_path + r'\label_2\001431.txt'
+        pointcloud_fullpath = dataset_path + r'\velodyne\004914.bin' #000010.bin
+        labels_path_1 = dataset_path + r'\label_2\004914.txt'
         pointcloud = read_bin(pointcloud_fullpath)
         range_image = pointcloud_to_range_image(pointcloud, size=(64, 1024))
         

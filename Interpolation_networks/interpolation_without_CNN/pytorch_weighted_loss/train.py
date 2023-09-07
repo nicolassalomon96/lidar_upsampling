@@ -1,6 +1,4 @@
 import sys
-sys.path.append(r'D:\Nicolas\Posgrado\Trabajos y Tesis\LIDAR\LIDAR_super_resolution\Scripts\otras_arquitecturas\3_pytorch_interpolation')
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -95,29 +93,19 @@ class ChamferLoss(nn.Module):
 
         pointcloud_gt_non_filtered, pointcloud_gt_filtered = pointcloud_filter(pointcloud_gt, label_path) #Listas de tamaño [batch_size] con las nubes de puntos
         pointcloud_pred_non_filtered, pointcloud_pred_filtered = pointcloud_filter(pointcloud_pred, label_path)
-        
-        #save_path = r'D:\Nicolas\puntos_filtrados_train.ply'
-        #save_ply(pointcloud_gt_filtered[0].detach().cpu().numpy(), save_path)
-
-        #save_path_or = r'D:\Nicolas\puntos_originales_train.ply'
-        #save_ply(pointcloud_gt[0].detach().cpu().numpy(), save_path_or)
-
-        #save_path_or = r'D:\Nicolas\puntos_sin_filtrar_train.ply'
-        #save_ply(pointcloud_gt_non_filtered[0].detach().cpu().numpy(), save_path_or)
-
-        #print(type(pointcloud_pred_filtered))
-        #print(len(pointcloud_pred_filtered))
-        #print(len(label_path))
-        #print(pointcloud_pred_filtered[0].shape)
 
         chamfer_loss_filtered = []
         chamfer_loss_non_filtered = []
 
         for i in range(len(label_path)):
             # Pointclouds must have dimensions [batch, num_points, 3]
-            chamfer_loss_filtered.append(kaolin.metrics.pointcloud.chamfer_distance(pointcloud_pred_filtered[i][:,:3].unsqueeze(0).to(self.device), pointcloud_gt_filtered[i][:,:3].unsqueeze(0).to(self.device)))
-            chamfer_loss_non_filtered.append(kaolin.metrics.pointcloud.chamfer_distance(pointcloud_pred_non_filtered[i][:,:3].unsqueeze(0).to(self.device), pointcloud_gt_non_filtered[i][:,:3].unsqueeze(0).to(self.device)))
-        
+            chamfer_distance_filtered = kaolin.metrics.pointcloud.chamfer_distance(pointcloud_pred_filtered[i][:,:3].unsqueeze(0).to(self.device), pointcloud_gt_filtered[i][:,:3].unsqueeze(0).to(self.device))
+            chamfer_distance_non_filtered = kaolin.metrics.pointcloud.chamfer_distance(pointcloud_pred_non_filtered[i][:,:3].unsqueeze(0).to(self.device), pointcloud_gt_non_filtered[i][:,:3].unsqueeze(0).to(self.device))
+            #print(chamfer_distance_filtered,chamfer_distance_non_filtered)
+
+            chamfer_loss_filtered.append(chamfer_distance_filtered)
+            chamfer_loss_non_filtered.append(chamfer_distance_non_filtered)
+    
         chamfer_loss_filtered = torch.tensor(chamfer_loss_filtered)
         chamfer_loss_non_filtered = torch.tensor(chamfer_loss_non_filtered)
 
@@ -191,9 +179,8 @@ def train_one_epoch(epoch_index, new_pixel_coords):
         pred_image[:,:,1:pred_image.shape[2]-1:2, :pred_image.shape[3]] = pixels
 
         # Compute the loss and its gradients
-        #loss = loss_fn(pixels, real_pixels, labels_path)
         loss = loss_fn(pred_image, hrimgs, labels_path)
-        #print(loss)
+        print(loss)
 
         #loss = torch.autograd.Variable(loss, requires_grad = True)
         loss.requires_grad = True
@@ -235,9 +222,10 @@ for epoch in range(EPOCHS):
 
     with torch.no_grad():
         for k, vdata in enumerate(valid_dataloader):
-            vlrimgs, vhrimgs = vdata
-            vlrimgs, vhrimgs = vlrimgs.to(device), vhrimgs.to(device)
-            
+            vlrimgs, vhrimgs, vlabels_path = vdata
+            vlrimgs = vlrimgs.to(device)
+            vhrimgs = vhrimgs.to(device)
+
             vwindows = get_windows(vlrimgs, new_pixel_coords)
             
             vpixels = torch.zeros((vwindows.shape[0], vwindows.shape[1], 1), device=device)
@@ -247,9 +235,10 @@ for epoch in range(EPOCHS):
             vpixels = torch.flatten(vpixels)
             vpixels = vpixels.view(vlrimgs.shape[0], vlrimgs.shape[1], -1, vlrimgs.shape[-1])
 
-            real_vpixels = vhrimgs[:,:,1:vhrimgs.shape[2]-1:2, :vhrimgs.shape[3]]
-            
-            vloss = loss_fn(vpixels, real_vpixels)
+            pred_vimage = torch.clone(vhrimgs)
+            pred_vimage[:,:,1:pred_vimage.shape[2]-1:2, :pred_vimage.shape[3]] = vpixels
+          
+            vloss = loss_fn(pred_vimage, vhrimgs, vlabels_path)
             running_vloss += vloss.item()
             
         avg_vloss = running_vloss / (k + 1)
@@ -263,7 +252,7 @@ for epoch in range(EPOCHS):
         model_path = os.path.join(save_folder, rf'model_816841_kitti3d_Chamfer_Rprop_ep{epoch_number+1}.pth')
         torch.save(mlp_net.state_dict(), model_path)
 
-    train_parameters.append(f'Epoch {epoch_number + 1} - Train_loss: {avg_loss} - Valid_loss: {avg_vloss} - lr: {optimizer.param_groups[0]["lr"]}')
+    train_parameters.append(f'Epoch {epoch_number + 1} - Train_loss: {avg_loss} - Valid_loss: {avg_vloss} - lr: {optimizer.param_groups[0]["lr"]} - Tiempo: {(fin-inicio)/60.0} minutos')
     parameters_writer(train_parameters, writer_path)
 
     epoch_number += 1
