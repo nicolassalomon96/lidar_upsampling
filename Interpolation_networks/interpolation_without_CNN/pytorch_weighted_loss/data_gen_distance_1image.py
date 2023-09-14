@@ -1,3 +1,4 @@
+a = 1
 import numpy as np
 import os
 import imageio.v2 as io
