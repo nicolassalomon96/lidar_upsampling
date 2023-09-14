@@ -342,6 +342,8 @@ def range_image_to_pointcloud_pytorch(tensor_image, device, v_fov=(-24.9, 2.0), 
     batch_size = tensor_image.shape[0]
     dist = tensor_image.reshape(batch_size, -1)
 
+    dist[dist < kitti_carla_min_range] = 0.0
+
     proj_x = torch.ones((batch_size, H, 1)) * torch.arange(0,W,1) # matriz (W x H) donde cada columna tiene el valor del indice de dicha columna
     proj_x = proj_x.reshape((batch_size, -1))
     proj_y = torch.transpose(torch.ones((batch_size,1,H)) * torch.arange(0,H,1), 1, 2) * torch.ones((batch_size,1,W)) # matriz (W x H) donde cada fila tiene el valor del indice de dicha fila
@@ -376,6 +378,7 @@ def range_image_to_pointcloud_pytorch(tensor_image, device, v_fov=(-24.9, 2.0), 
     z = dist * torch.sin(pitch)
 
     pointcloud = torch.dstack((x,y,z,dist))
+    pointcloud[pointcloud[:,:,2] < -(lidar_z_pos+lidar_z_offset)] = 0.0 #Filtro los puntos que estan por debajo del suelo más un offset manual
     return pointcloud
 
 #Función para tomar una imagen de rango de distancia (formato: 0 - max_distance) y de intensidad y devolver una nube de puntos de la forma (X,Y,Z,intensidad)

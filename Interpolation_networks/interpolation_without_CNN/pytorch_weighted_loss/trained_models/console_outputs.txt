@@ -1,0 +1,1 @@
+Epoch 1 - Train_loss: 0.01811690896283835 - Valid_loss: 0.022268854081630707 - lr: 0.0001 - Tiempo: 7.164303815364837 minutos, 

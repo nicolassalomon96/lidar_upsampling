@@ -11,10 +11,7 @@ from object_filtering_pytorch import pointcloud_filter
 ##################################### VARIABLES #####################################################
 device = "cuda" if torch.cuda.is_available() else "cpu"
 batch_size = 500
-lr = 1e-1
-std_percent = 1e-2
-dropout_rate = 0.5
-l2_weight = 0.01
+lr = 1e-4
 
 epoch_number = 0
 EPOCHS = 500
@@ -54,7 +51,7 @@ class Approx_net(nn.Module):
         nn.init.kaiming_normal_(self.linear_one.weight, a=0.01, nonlinearity='leaky_relu')
         nn.init.kaiming_normal_(self.linear_two.weight, a=0.01, nonlinearity='leaky_relu')
         nn.init.kaiming_normal_(self.linear_three.weight, a=0.01, nonlinearity='leaky_relu')
-        nn.init.kaiming_normal_(self.linear_four.weight, a=0.01, nonlinearity='relu')
+        nn.init.kaiming_normal_(self.linear_four.weight, nonlinearity='relu')
        
         self.act = nn.LeakyReLU()
         self.act1 = nn.ReLU()
@@ -68,14 +65,16 @@ class Approx_net(nn.Module):
         return y
 
 mlp_net = Approx_net(input_size=8, hidden_neurons_1=16, hidden_neurons_2=8, hidden_neurons_3=4, output_size=1)
+#mlp_net = Approx_net(input_size=8, hidden_neurons_1=32, hidden_neurons_2=16, hidden_neurons_3=8, output_size=1)
 mlp_net = mlp_net.to(device)
 
 ######################################### LOSS ######################################
-
 class ChamferLoss(nn.Module):
     def __init__(self, device):
         super(ChamferLoss, self).__init__()
         self.device = device
+        #self.gamma = torch.nn.Parameter(torch.tensor(0.5)) Colocar un parámetro no sirve porque la red trata de disminuir el error, variando el valor del parámetro
+        #                                                   hasta que alguno de los términos se hace 0
 
     def forward(self, image_pred, image_gt, label_path):
         """
@@ -91,8 +90,8 @@ class ChamferLoss(nn.Module):
         pointcloud_pred = range_image_to_pointcloud_pytorch(image_pred * kitti_max_distance, device) #[batch, num_points, 4]
         pointcloud_gt = range_image_to_pointcloud_pytorch(image_gt * kitti_max_distance, device) #[batch, num_points, 4]
 
-        pointcloud_gt_non_filtered, pointcloud_gt_filtered = pointcloud_filter(pointcloud_gt, label_path) #Listas de tamaño [batch_size] con las nubes de puntos
-        pointcloud_pred_non_filtered, pointcloud_pred_filtered = pointcloud_filter(pointcloud_pred, label_path)
+        pointcloud_gt_non_filtered, pointcloud_gt_filtered = pointcloud_filter(pointcloud_gt, label_path, normalized_output=True) #Listas de tamaño [batch_size] con las nubes de puntos
+        pointcloud_pred_non_filtered, pointcloud_pred_filtered = pointcloud_filter(pointcloud_pred, label_path, normalized_output=True)
 
         chamfer_loss_filtered = []
         chamfer_loss_non_filtered = []
@@ -102,14 +101,29 @@ class ChamferLoss(nn.Module):
             chamfer_distance_filtered = kaolin.metrics.pointcloud.chamfer_distance(pointcloud_pred_filtered[i][:,:3].unsqueeze(0).to(self.device), pointcloud_gt_filtered[i][:,:3].unsqueeze(0).to(self.device))
             chamfer_distance_non_filtered = kaolin.metrics.pointcloud.chamfer_distance(pointcloud_pred_non_filtered[i][:,:3].unsqueeze(0).to(self.device), pointcloud_gt_non_filtered[i][:,:3].unsqueeze(0).to(self.device))
             #print(chamfer_distance_filtered,chamfer_distance_non_filtered)
-
+            
             chamfer_loss_filtered.append(chamfer_distance_filtered)
             chamfer_loss_non_filtered.append(chamfer_distance_non_filtered)
-    
-        chamfer_loss_filtered = torch.tensor(chamfer_loss_filtered)
-        chamfer_loss_non_filtered = torch.tensor(chamfer_loss_non_filtered)
+            #print(f'1: {chamfer_loss_filtered[i].requires_grad}')
+            #print(f'2: {chamfer_loss_non_filtered[i].requires_grad}')
+        
+        #chamfer_loss_filtered = torch.tensor(chamfer_loss_filtered)#, requires_grad=True)
+        #chamfer_loss_non_filtered = torch.tensor(chamfer_loss_non_filtered)#, requires_grad=True)
+        chamfer_loss_filtered_tensor = torch.cat(chamfer_loss_filtered) #Si se usa torch.tensor(chamfer_loss_filtered) se rompe el grafo computacional
+        chamfer_loss_non_filtered_tensor = torch.cat(chamfer_loss_non_filtered)
+        #print(f'3: {chamfer_loss_filtered.requires_grad}')
+        #print(f'4: {chamfer_loss_non_filtered.requires_grad}')
+        
+        #print(f'Error puntos filtrados: {torch.mean(chamfer_loss_filtered_tensor)}')
+        #print(f'Error puntos no filtrados: {torch.mean(chamfer_loss_non_filtered_tensor)}')
 
-        chamfer_loss_mean = torch.mean(chamfer_loss_filtered) * 0.7 + torch.mean(chamfer_loss_non_filtered) * 0.3
+        chamfer_loss_mean = torch.mean(chamfer_loss_filtered_tensor) * 0.7 + torch.mean(chamfer_loss_non_filtered_tensor) * 0.3
+        
+        #self.gamma.data = torch.relu(self.gamma)
+        #chamfer_loss_mean = torch.mean(chamfer_loss_filtered_tensor) * (1 - self.gamma) + torch.mean(chamfer_loss_non_filtered_tensor) * self.gamma
+        #print((torch.mean(chamfer_loss_filtered_tensor) * (1 - self.gamma)).item() , (torch.mean(chamfer_loss_non_filtered_tensor) * self.gamma).item())
+        
+        #print(f'Chamfer_loss: {chamfer_loss_mean.item()}')
         return chamfer_loss_mean
 
 loss_fn = ChamferLoss(device=device)
@@ -117,6 +131,8 @@ loss_fn = ChamferLoss(device=device)
 
 ############################## OPTIMIZER - LR SCHEDULER ###############################
 optimizer = torch.optim.Rprop(mlp_net.parameters(), lr=lr, etas=(0.5,1.5))
+#optimizer = torch.optim.Rprop(list(mlp_net.parameters()) + list(loss_fn.parameters()), lr=lr, etas=(0.5,1.5))
+#optimizer = torch.optim.Adam(mlp_net.parameters(), lr=lr, weight_decay=lr/10)
 
 ################################# WRITER ############################################
 def parameters_writer(parameters_list, save_path):
@@ -174,20 +190,46 @@ def train_one_epoch(epoch_index, new_pixel_coords):
 
         pixels = torch.flatten(pixels)
         pixels = pixels.view(lrimgs.shape[0], lrimgs.shape[1], -1, lrimgs.shape[-1])  
-        
-        pred_image = torch.clone(hrimgs)
-        pred_image[:,:,1:pred_image.shape[2]-1:2, :pred_image.shape[3]] = pixels
+
+        real_pixels = hrimgs[:,:,1:hrimgs.shape[2]-1:2, :hrimgs.shape[3]]
+
+        if (epoch_index+1) % 10 == 0:
+            pointcloud_pred = range_image_to_pointcloud_pytorch(pixels * kitti_max_distance, device) #[batch, num_points, 4]
+            pointcloud_gt = range_image_to_pointcloud_pytorch(real_pixels * kitti_max_distance, device) #[batch, num_points, 4]
+
+            pointcloud_gt_non_filtered_test, pointcloud_gt_filtered_test = pointcloud_filter(pointcloud_gt, labels_path) #Listas de tamaño [batch_size] con las nubes de puntos
+            pointcloud_pred_non_filtered_test, pointcloud_pred_filtered_test = pointcloud_filter(pointcloud_pred, labels_path)
+            
+            save_path = rf'D:\Nicolas\pruebas\gt_non_filtered_{epoch_index}.ply'
+            save_ply(pointcloud_gt_non_filtered_test[0].detach().cpu().numpy(), save_path)
+
+            save_path = rf'D:\Nicolas\pruebas\gt_filtered_{epoch_index}.ply'
+            save_ply(pointcloud_gt_filtered_test[0].detach().cpu().numpy(), save_path)
+
+            save_path = rf'D:\Nicolas\pruebas\pred_non_filtered_{epoch_index}.ply'
+            save_ply(pointcloud_pred_non_filtered_test[0].detach().cpu().numpy(), save_path)
+
+            save_path = rf'D:\Nicolas\pruebas\pred_filtered_{epoch_index}.ply'
+            save_ply(pointcloud_pred_filtered_test[0].detach().cpu().numpy(), save_path)
 
         # Compute the loss and its gradients
-        loss = loss_fn(pred_image, hrimgs, labels_path)
-        print(loss)
+        #print(pixels.requires_grad, real_pixels.requires_grad)
+        #loss = loss_fn(pixels, real_pixels)
+        loss = loss_fn(pixels, real_pixels, labels_path)
+        #print(loss)
 
-        #loss = torch.autograd.Variable(loss, requires_grad = True)
-        loss.requires_grad = True
+        #for name, param in mlp_net.named_parameters():
+        #    print (name, torch.mean(param.data))
+        #before = list(mlp_net.parameters())[0].clone()
+        #loss.requires_grad = True
         loss.backward()
+        #print([x.grad for x in mlp_net.parameters()] )
         
         # Adjust learning weights
         optimizer.step()
+        
+        #after = list(mlp_net.parameters())[0].clone()
+        #print(f'Los pesos son iguales: {torch.equal(before.data, after.data)}')
    
         # Gather data and report
         running_loss += loss.item()
@@ -199,7 +241,7 @@ for epoch in range(EPOCHS):
     inicio = time.time()
    
     #net_parameters = [] #Lista para escribir un .txt con los valores de los parámetros de cada epoca de entrenamiento
-    train_parameters = [] #Lista para escribir un .txt con los valores de loss de cada epoca de entrenamiento
+    train_console = [] #Lista para escribir un .txt con los valores de loss de cada epoca de entrenamiento
 
     #net_parameters.append(torch.max(mlp_net.linear_one.weight).item())
     #net_parameters.append(torch.max(mlp_net.linear_one.bias).item())
@@ -212,8 +254,9 @@ for epoch in range(EPOCHS):
     
     # Make sure gradient tracking is on, and do a pass over the data
     #for name, param in mlp_net.named_parameters():
-    #    print (name, torch.mean(param.data))
+    #    print (name, torch.mean(param.data), torch.max(param.data), torch.min(param.data))
     mlp_net.train()
+    #print(f'Gamma: {loss_fn.gamma.item()}')
     avg_loss = train_one_epoch(epoch, new_pixel_coords)
     
     # We don't need gradients on to do reporting
@@ -235,10 +278,10 @@ for epoch in range(EPOCHS):
             vpixels = torch.flatten(vpixels)
             vpixels = vpixels.view(vlrimgs.shape[0], vlrimgs.shape[1], -1, vlrimgs.shape[-1])
 
-            pred_vimage = torch.clone(vhrimgs)
-            pred_vimage[:,:,1:pred_vimage.shape[2]-1:2, :pred_vimage.shape[3]] = vpixels
-          
-            vloss = loss_fn(pred_vimage, vhrimgs, vlabels_path)
+            real_vpixels = vhrimgs[:,:,1:vhrimgs.shape[2]-1:2, :vhrimgs.shape[3]]
+
+            #vloss = loss_fn(vpixels, real_vpixels)
+            vloss = loss_fn(vpixels, real_vpixels, vlabels_path)
             running_vloss += vloss.item()
             
         avg_vloss = running_vloss / (k + 1)
@@ -252,8 +295,8 @@ for epoch in range(EPOCHS):
         model_path = os.path.join(save_folder, rf'model_816841_kitti3d_Chamfer_Rprop_ep{epoch_number+1}.pth')
         torch.save(mlp_net.state_dict(), model_path)
 
-    train_parameters.append(f'Epoch {epoch_number + 1} - Train_loss: {avg_loss} - Valid_loss: {avg_vloss} - lr: {optimizer.param_groups[0]["lr"]} - Tiempo: {(fin-inicio)/60.0} minutos')
-    parameters_writer(train_parameters, writer_path)
+    train_console.append(f'Epoch {epoch_number + 1} - Train_loss: {avg_loss} - Valid_loss: {avg_vloss} - lr: {optimizer.param_groups[0]["lr"]} - Tiempo: {(fin-inicio)/60.0} minutos')
+    parameters_writer(train_console, writer_path)
 
     epoch_number += 1
 

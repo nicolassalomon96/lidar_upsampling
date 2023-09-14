@@ -138,12 +138,12 @@ def get_outer_points(pointcloud, filtered_pointcloud):
 
     return resulting_tensor
 
-def pointcloud_filter(pointcloud, labels_path):
+def pointcloud_filter(pointcloud, labels_path, normalized_output=False):
 
-    pointcloud = removePoints(pointcloud) #lista de pointclouds -->  [batch][num_points, 4]
+    pointcloud = removePoints(pointcloud) #lista de pointclouds -->  [batch][num_points, 4] - requires_grad=True
     label_data = read_labels(labels_path) #[batch][num_objects][labels]
     corners_all = get_3d_corners(label_data) #list of tensor --> [batch][num_objects, 8, 3]
-
+    
     #Eficiente, pero no extrae exactamente los puntos dentro del bbox porque los bbox no estan alineados con el centro del mundo
     filtered_pointcloud = []
     non_labeled_pointclouds = []
@@ -153,21 +153,24 @@ def pointcloud_filter(pointcloud, labels_path):
         if len(filtered_points) > 0: #Comprobación de que luego de removePoints, existen puntos pertenecientes a objetos en la nube
             filtered_pointcloud.append(filtered_points)
         else: #Si no hay puntos, se hace un padding de zeros para que no hayan errores de dimensiones al calcular la función de error
-            filtered_pointcloud.append(torch.zeros((1,4)))
+            filtered_pointcloud.append(torch.zeros((1,4), requires_grad=True))
 
         non_labeled_points = get_outer_points(pointcloud[idx], filtered_points)
         if len(non_labeled_points) > 0: #Comprobación de que luego de removePoints, existen puntos pertenecientes a objetos en la nube
             non_labeled_pointclouds.append(non_labeled_points)
-        else:
-            non_labeled_pointclouds.append(torch.zeros((1,4)))
+        else: #Si no hay puntos, se hace un padding de zeros para que no hayan errores de dimensiones al calcular la función de error
+            non_labeled_pointclouds.append(torch.zeros((1,4), requires_grad=True))
 
-    return non_labeled_pointclouds, filtered_pointcloud
+    if normalized_output:
+        return list(map(lambda x: x/kitti_max_distance, non_labeled_pointclouds)), list(map(lambda x: x/kitti_max_distance, filtered_pointcloud))
+    else:
+        return non_labeled_pointclouds, filtered_pointcloud
     
 if __name__ == "__main__":
 
         dataset_path = r'D:\Nicolas\Posgrado\Trabajos y Tesis\LIDAR\Datasets LIDAR\kitti\kitti_3d_object\training'
-        pointcloud_fullpath = dataset_path + r'\velodyne\004914.bin' #000010.bin
-        labels_path_1 = dataset_path + r'\label_2\004914.txt'
+        pointcloud_fullpath = dataset_path + r'\velodyne\000018.bin' #000010.bin
+        labels_path_1 = dataset_path + r'\label_2\000018.txt'
         pointcloud = read_bin(pointcloud_fullpath)
         range_image = pointcloud_to_range_image(pointcloud, size=(64, 1024))
         
@@ -177,8 +180,8 @@ if __name__ == "__main__":
         range_image[range_image > kitti_max_distance] = 0.0
         range_image = torch.from_numpy(range_image).unsqueeze(0) #[batch, channel, height, width]
 
-        pointcloud_fullpath_2 = dataset_path + r'\velodyne\001636.bin'
-        labels_path_2 = dataset_path + r'\label_2\001636.txt'
+        pointcloud_fullpath_2 = dataset_path + r'\velodyne\000019.bin'
+        labels_path_2 = dataset_path + r'\label_2\000019.txt'
         pointcloud_2 = read_bin(pointcloud_fullpath_2)
         range_image_2 = pointcloud_to_range_image(pointcloud_2, size=(64, 1024))
         
@@ -194,11 +197,11 @@ if __name__ == "__main__":
         pointcloud_batch = range_image_to_pointcloud_pytorch(range_image_batch.to(device), device='cuda') #[batch, num_points, 4]
         non_filtered_points, filtered_points = pointcloud_filter(pointcloud_batch, labels_path)
 
-        save_path = r'D:\Nicolas\puntos_filtrados_1.ply'
-        save_ply(filtered_points[0].detach().cpu().numpy(), save_path)
+        save_path = r'D:\Nicolas\puntos_filtrados_2.ply'
+        save_ply(filtered_points[1].detach().cpu().numpy(), save_path)
 
-        save_path_or = r'D:\Nicolas\puntos_originales_1.ply'
-        save_ply(pointcloud_batch[0].detach().cpu().numpy(), save_path_or)
+        save_path_or = r'D:\Nicolas\puntos_originales_2.ply'
+        save_ply(pointcloud_batch[1].detach().cpu().numpy(), save_path_or)
 
-        save_path_or = r'D:\Nicolas\puntos_sin_filtrar_1.ply'
-        save_ply(non_filtered_points[0].detach().cpu().numpy(), save_path_or)
+        save_path_or = r'D:\Nicolas\puntos_sin_filtrar_2.ply'
+        save_ply(non_filtered_points[1].detach().cpu().numpy(), save_path_or)

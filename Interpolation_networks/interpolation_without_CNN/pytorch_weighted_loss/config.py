@@ -4,6 +4,7 @@ import os
 path_folder = r'D:\Nicolas\Posgrado\Trabajos y Tesis\LIDAR\Datasets LIDAR\kitti' #Root folder
 
 velodyne_folder = os.path.join(path_folder, r'range_distance_images_3d_object\training_64x1024') #El entrenamiento lo realicé con 64x1024
+velodyne_folder_1image = os.path.join(path_folder, r'range_distance_images_3d_object\training_64x1024_1image') #El entrenamiento lo realicé con 64x1024
 labels_folder = os.path.join(path_folder, r'kitti_3d_object\training\label_2')
 
 #Variables
