@@ -1,4 +1,3 @@
-a = 1
 import torch.nn as nn
 import torch.nn.functional as F
 from data_gen_distance import *

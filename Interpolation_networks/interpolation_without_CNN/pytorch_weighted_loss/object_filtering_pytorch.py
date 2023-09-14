@@ -1,4 +1,3 @@
-a = 1
 import sys
 import pandas as pd
 from pointcloud_utils_functions_v2 import *

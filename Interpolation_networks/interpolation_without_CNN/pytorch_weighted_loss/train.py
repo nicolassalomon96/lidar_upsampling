@@ -1,4 +1,3 @@
-a = 1
 import sys
 import torch
 import torch.nn as nn
