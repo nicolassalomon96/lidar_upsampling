@@ -11,7 +11,7 @@ from object_filtering_pytorch import pointcloud_filter
 ##################################### VARIABLES #####################################################
 device = "cuda" if torch.cuda.is_available() else "cpu"
 batch_size = 500
-lr = 1e-4
+lr = 1e-3
 
 epoch_number = 0
 EPOCHS = 500
@@ -73,6 +73,7 @@ class ChamferLoss(nn.Module):
     def __init__(self, device):
         super(ChamferLoss, self).__init__()
         self.device = device
+        self.normalized_out = True #Considerar las nubes de puntos normalizadas en [-1,1] para el cálculo del error
         #self.gamma = torch.nn.Parameter(torch.tensor(0.5)) Colocar un parámetro no sirve porque la red trata de disminuir el error, variando el valor del parámetro
         #                                                   hasta que alguno de los términos se hace 0
 
@@ -90,9 +91,9 @@ class ChamferLoss(nn.Module):
         pointcloud_pred = range_image_to_pointcloud_pytorch(image_pred * kitti_max_distance, device) #[batch, num_points, 4]
         pointcloud_gt = range_image_to_pointcloud_pytorch(image_gt * kitti_max_distance, device) #[batch, num_points, 4]
 
-        pointcloud_gt_non_filtered, pointcloud_gt_filtered = pointcloud_filter(pointcloud_gt, label_path, normalized_output=True) #Listas de tamaño [batch_size] con las nubes de puntos
-        pointcloud_pred_non_filtered, pointcloud_pred_filtered = pointcloud_filter(pointcloud_pred, label_path, normalized_output=True)
-
+        pointcloud_gt_non_filtered, pointcloud_gt_filtered = pointcloud_filter(pointcloud_gt, label_path, normalized_output=self.normalized_out) #Listas de tamaño [batch_size] con las nubes de puntos
+        pointcloud_pred_non_filtered, pointcloud_pred_filtered = pointcloud_filter(pointcloud_pred, label_path, normalized_output=self.normalized_out)
+        #print(pointcloud_pred_non_filtered[0].requires_grad, pointcloud_pred_filtered[0].requires_grad)
         chamfer_loss_filtered = []
         chamfer_loss_non_filtered = []
 
@@ -106,7 +107,7 @@ class ChamferLoss(nn.Module):
             chamfer_loss_non_filtered.append(chamfer_distance_non_filtered)
             #print(f'1: {chamfer_loss_filtered[i].requires_grad}')
             #print(f'2: {chamfer_loss_non_filtered[i].requires_grad}')
-        
+
         #chamfer_loss_filtered = torch.tensor(chamfer_loss_filtered)#, requires_grad=True)
         #chamfer_loss_non_filtered = torch.tensor(chamfer_loss_non_filtered)#, requires_grad=True)
         chamfer_loss_filtered_tensor = torch.cat(chamfer_loss_filtered) #Si se usa torch.tensor(chamfer_loss_filtered) se rompe el grafo computacional
@@ -117,7 +118,7 @@ class ChamferLoss(nn.Module):
         #print(f'Error puntos filtrados: {torch.mean(chamfer_loss_filtered_tensor)}')
         #print(f'Error puntos no filtrados: {torch.mean(chamfer_loss_non_filtered_tensor)}')
 
-        chamfer_loss_mean = torch.mean(chamfer_loss_filtered_tensor) * 0.7 + torch.mean(chamfer_loss_non_filtered_tensor) * 0.3
+        chamfer_loss_mean = torch.mean(chamfer_loss_filtered_tensor) + torch.mean(chamfer_loss_non_filtered_tensor)
         
         #self.gamma.data = torch.relu(self.gamma)
         #chamfer_loss_mean = torch.mean(chamfer_loss_filtered_tensor) * (1 - self.gamma) + torch.mean(chamfer_loss_non_filtered_tensor) * self.gamma
@@ -215,6 +216,7 @@ def train_one_epoch(epoch_index, new_pixel_coords):
         # Compute the loss and its gradients
         #print(pixels.requires_grad, real_pixels.requires_grad)
         #loss = loss_fn(pixels, real_pixels)
+        #loss = loss_fn(pixels, real_pixels, labels_path)
         loss = loss_fn(pixels, real_pixels, labels_path)
         #print(loss)
 

@@ -89,7 +89,7 @@ output_image = toutputs.detach().numpy()[0][0]
 
 pointcloud = range_image_to_pointcloud(output_image * kitti_max_distance)
 #pointcloud = range_image_to_pointcloud(hr_range_distance_image * kitti_max_distance)
-save_PATH = r'D:\Nicolas\Posgrado\Trabajos y Tesis\LIDAR\lidar_upsampling\Interpolation_networks\interpolation_without_CNN\pytorch_weighted_loss\test_outputs\test.ply'
+save_PATH = r'D:\Nicolas\Posgrado\Trabajos y Tesis\LIDAR\lidar_upsampling\Interpolation_networks\interpolation_without_CNN\pytorch_weighted_loss\test_outputs\test_1.ply'
 save_ply(pointcloud, save_PATH)
 
 #original = read_bin(r'D:\Nicolas\Posgrado\Trabajos y Tesis\LIDAR\Datasets LIDAR\kitti\kitti_3d_object\testing\velodyne\000001.bin')
