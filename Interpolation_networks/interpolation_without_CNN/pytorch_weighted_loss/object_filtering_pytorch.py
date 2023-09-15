@@ -154,9 +154,11 @@ def get_outer_points(pointcloud, filtered_pointcloud, normalized_output):
 
     return resulting_tensor
 
-def pointcloud_filter(pointcloud, labels_path, normalized_output=False):
+def pointcloud_filter(pointcloud, labels_path, normalized_output=False, filter_non_label_points=True):
+    
+    if filter_non_label_points:
+        pointcloud = removePoints(pointcloud) #lista de pointclouds -->  [batch][num_points, 4] - requires_grad=True
 
-    pointcloud = removePoints(pointcloud) #lista de pointclouds -->  [batch][num_points, 4] - requires_grad=True
     label_data = read_labels(labels_path) #[batch][num_objects][labels]
     corners_all = get_3d_corners(label_data) #list of tensor --> [batch][num_objects, 8, 3]
     
@@ -208,13 +210,13 @@ if __name__ == "__main__":
         ############################### HASTA AQUI ESTAMOS EN EL MUNDO DE LAS IMÁGENES#####################################
 
         pointcloud_batch = range_image_to_pointcloud_pytorch(range_image_batch.to(device), device='cuda') #[batch, num_points, 4]
-        non_filtered_points, filtered_points = pointcloud_filter(pointcloud_batch, labels_path)
+        non_filtered_points, filtered_points = pointcloud_filter(pointcloud_batch, labels_path, normalized_output=False, filter_non_label_points=False)
 
-        save_path = r'D:\Nicolas\puntos_filtrados_2.ply'
+        save_path = r'D:\Nicolas\puntos_filtrados_prueba.ply'
         save_ply(filtered_points[1].detach().cpu().numpy(), save_path)
 
-        save_path_or = r'D:\Nicolas\puntos_originales_2.ply'
+        save_path_or = r'D:\Nicolas\puntos_originales_prueba.ply'
         save_ply(pointcloud_batch[1].detach().cpu().numpy(), save_path_or)
 
-        save_path_or = r'D:\Nicolas\puntos_sin_filtrar_2.ply'
+        save_path_or = r'D:\Nicolas\puntos_sin_filtrar_prueba.ply'
         save_ply(non_filtered_points[1].detach().cpu().numpy(), save_path_or)
