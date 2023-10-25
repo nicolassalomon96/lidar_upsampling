@@ -30,10 +30,13 @@ class Approx_net(nn.Module):
         return y
 
 def get_windows(x, new_pixel_coords, upscaling_factor=2):
-    kernel_size = (2,3)
-    padding = (0,1)
+    #kernel_size = (2,3)
+    #padding = (0,1)
+    #stride = (1,1)
+    kernel_size = (4,3)
+    padding = (1,1)
     stride = (1,1)
-    
+
     if upscaling_factor == 2:
         windows = F.unfold(x, kernel_size=kernel_size, padding=padding, stride=stride)
         windows = windows.transpose(1, 2) #Obtener los valores de la ventana o kernel ordenados por fila, donde cada fila representa una ventana serializada
@@ -44,8 +47,9 @@ def get_windows(x, new_pixel_coords, upscaling_factor=2):
     return windows 
 
 device = 'cpu'
-mlp_net = Approx_net(input_size=8, hidden_neurons_1=16, hidden_neurons_2=8, hidden_neurons_3=4, output_size=1)
-mlp_net.load_state_dict(torch.load(r'D:\Nicolas\Posgrado\Trabajos y Tesis\LIDAR\lidar_upsampling\Interpolation_networks\interpolation_without_CNN\pytorch_weighted_loss\trained_models\model_816841_kitti3d_Chamfer_Rprop_ep328_1image.pth'))
+#mlp_net = Approx_net(input_size=8, hidden_neurons_1=16, hidden_neurons_2=8, hidden_neurons_3=4, output_size=1)
+mlp_net = Approx_net(input_size=14, hidden_neurons_1=16, hidden_neurons_2=8, hidden_neurons_3=4, output_size=1)
+mlp_net.load_state_dict(torch.load(r'D:\Nicolas\Posgrado\Trabajos y Tesis\LIDAR\lidar_upsampling\Interpolation_networks\interpolation_without_CNN\pytorch_weighted_loss\trained_models\model_816841_kitti3d_Chamfer_Rprop_ep223_window4x3.pth'))
 mlp_net = mlp_net.to(device)   
 
 pointcloud_path = r'D:\Nicolas\Posgrado\Trabajos y Tesis\LIDAR\Datasets LIDAR\kitti\kitti_3d_object\testing\velodyne\000001.bin'

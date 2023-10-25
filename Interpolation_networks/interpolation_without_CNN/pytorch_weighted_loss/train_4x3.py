@@ -154,7 +154,7 @@ class ChamferLoss(nn.Module):
         chamfer_loss_mean = torch.mean(chamfer_loss)
         return chamfer_loss_mean
 
-loss_fn = ChamferLoss(device=device, normalized_out=False, consider_out_image_points=True, separate_pointcloud=False)
+loss_fn = ChamferLoss(device=device, normalized_out=False, consider_out_image_points=True, separate_pointcloud=True)
 #loss_fn = nn.L1Loss()
 
 ############################## OPTIMIZER - LR SCHEDULER ###############################

@@ -5,8 +5,6 @@ from pointcloud_utils_functions_v2 import *
 BoundaryCond = {"minX": 0, "maxX": 50, "minY": -25, "maxY": 25, "minZ": -2.73, "maxZ": 1.27}
 def removePoints(PointCloud):
     # Remove the point out of range x,y,z
-    #BoundaryCond = {"minX": 0, "maxX": 50, "minY": -25, "maxY": 25, "minZ": -2.73, "maxZ": 1.27}
-
     masks = (
         (PointCloud[:, :, 0] >= BoundaryCond['minX']) & 
         (PointCloud[:, :, 0] <= BoundaryCond['maxX']) & 
@@ -121,7 +119,6 @@ def get_3d_corners(label_data):
 def filter_points(pointcloud, corners_all_objs, normalized_output=False):
     #Keep only points inside bbox
     filtered_points = []
-    #BoundaryCond = {"minX": 0, "maxX": 50, "minY": -25, "maxY": 25, "minZ": -2.73, "maxZ": 1.27}
 
     for corners in corners_all_objs:
         points = pointcloud[(corners[:,0].min() < pointcloud[:,0]) & (pointcloud[:,0] < corners[:,0].max())
@@ -133,13 +130,26 @@ def filter_points(pointcloud, corners_all_objs, normalized_output=False):
             points[:,3] = points[:,3] / kitti_max_distance
             #points[:,2] = points[:,2] / BoundaryCond['maxZ'] #Como la normalización de Z va a depender si es positivo o negativo, para no 
                                                               #relentizar el código, no se normalizará, ya que de todas formas, Z no toma valores grandes
+        
         filtered_points.append(points) #lista en la que cada elemento es una nube de puntos del objecto filtrado
+        ###
+        #if len(points>0):
+        #    filtered_points.append(points) #lista en la que cada elemento es una nube de puntos del objecto filtrado
+        #else:
+        #    distance_value = torch.linalg.norm(corners[0], 2, axis=0).unsqueeze(0) #sqrt(x^2 + y^2 + z^2)
+        #    new_point = torch.cat((corners[0].to(device), distance_value.to(device)))#.requires_grad_() #[x,y,z,dist]
+        #    if normalized_output:
+        #       #new_point_normalized = torch.cat((new_point[0] / BoundaryCond['maxX'], new_point[1] / BoundaryCond['maxY'], new_point[2], new_point[3] / kitti_max_distance))
+        #        new_point[0] = new_point[0] / BoundaryCond['maxX']
+        #        new_point[1] = new_point[1] / BoundaryCond['maxY']
+        #        new_point[3] = new_point[3] / kitti_max_distance               
+        #    new_point.requires_grad_()
+        #    filtered_points.append(new_point)
+        ###
     filtered_points = torch.vstack(filtered_points) #tensor con todos los puntos referentes a los objetos de una nube, juntos   
     return filtered_points
 
 def get_outer_points(pointcloud, filtered_pointcloud, normalized_output):
-
-    #BoundaryCond = {"minX": 0, "maxX": 50, "minY": -25, "maxY": 25, "minZ": -2.73, "maxZ": 1.27}
 
     # Broadcast and compare to find matching rows
     matches = (pointcloud[:, None] == filtered_pointcloud).all(dim=-1).any(dim=-1)
@@ -154,9 +164,9 @@ def get_outer_points(pointcloud, filtered_pointcloud, normalized_output):
 
     return resulting_tensor
 
-def pointcloud_filter(pointcloud, labels_path, normalized_output=False, filter_non_label_points=True):
+def pointcloud_filter(pointcloud, labels_path, normalized_output=False, consider_out_image_points=True):
     
-    if filter_non_label_points:
+    if not consider_out_image_points:
         pointcloud = removePoints(pointcloud) #lista de pointclouds -->  [batch][num_points, 4] - requires_grad=True
 
     label_data = read_labels(labels_path) #[batch][num_objects][labels]
@@ -165,20 +175,25 @@ def pointcloud_filter(pointcloud, labels_path, normalized_output=False, filter_n
     #Eficiente, pero no extrae exactamente los puntos dentro del bbox porque los bbox no estan alineados con el centro del mundo
     filtered_pointcloud = []
     non_labeled_pointclouds = []
+
     for idx, corners in enumerate(corners_all):
         
         filtered_points = filter_points(pointcloud[idx], corners, normalized_output) #Lista donde cada elemento es la nube de puntos filtrada
-        if len(filtered_points) > 0: #Comprobación de que luego de removePoints, existen puntos pertenecientes a objetos en la nube
-            filtered_pointcloud.append(filtered_points)
-        else: #Si no hay puntos, se hace un padding de zeros para que no hayan errores de dimensiones al calcular la función de error
-            filtered_pointcloud.append(torch.zeros((1,4), requires_grad=True))
+        #print(idx)
+        #if len(filtered_points) > 0: #Comprobación de que luego de removePoints, existen puntos pertenecientes a objetos en la nube
+        filtered_pointcloud.append(filtered_points)
+        #else: 
+            #Si no hay puntos, se hace un padding de zeros para que no hayan errores de dimensiones al calcular la función de error. PERO:
+            #Si un punto en ground truth esta en una posición mientras que en la predicha esta en 0, la distancia chamfer, tomará el punto más cercano
+            #a la predicha en 0,0 de la ground truth, lo que puede dar un error grande al querer aproximar los puntos de los objetos
+        #    filtered_pointcloud.append(torch.zeros((1,4), requires_grad=True))
 
         non_labeled_points = get_outer_points(pointcloud[idx], filtered_points, normalized_output)
-        if len(non_labeled_points) > 0: #Comprobación de que luego de removePoints, existen puntos pertenecientes a objetos en la nube
-            non_labeled_pointclouds.append(non_labeled_points)
-        else: #Si no hay puntos, se hace un padding de zeros para que no hayan errores de dimensiones al calcular la función de error
-            non_labeled_pointclouds.append(torch.zeros((1,4), requires_grad=True))
-    
+        #if len(non_labeled_points) > 0: #Comprobación de que luego de removePoints, existen puntos pertenecientes a objetos en la nube
+        non_labeled_pointclouds.append(non_labeled_points)
+        #else:
+        #    non_labeled_pointclouds.append(torch.zeros((1,4), requires_grad=True))
+
     return non_labeled_pointclouds, filtered_pointcloud
     
 if __name__ == "__main__":

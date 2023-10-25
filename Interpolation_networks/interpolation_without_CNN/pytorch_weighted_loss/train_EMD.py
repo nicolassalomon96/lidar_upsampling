@@ -7,8 +7,12 @@ import kaolin
 from data_gen_distance import *
 from pointcloud_utils_functions_v2 import *
 from object_filtering_pytorch import pointcloud_filter
-
+#from emd_sinkhorn import *
 torch.autograd.set_detect_anomaly(True)
+
+#from geomloss import SamplesLoss
+from swd_all import *
+
 
 ##################################### VARIABLES #####################################################
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -72,7 +76,7 @@ class Approx_net(nn.Module):
         return y
 
 mlp_net = Approx_net(input_size=8, hidden_neurons_1=16, hidden_neurons_2=8, hidden_neurons_3=4, output_size=1)
-mlp_net.load_state_dict(torch.load(r'..\pytorch_implementation\models_result\model_816841_kitti3d_Chamfer_Rprop_ep224.pth'))
+#mlp_net.load_state_dict(torch.load(r'..\pytorch_implementation\models_result\model_816841_kitti3d_Chamfer_Rprop_ep224.pth'))
 #print("Trained model loaded")
 mlp_net = mlp_net.to(device)
 
@@ -164,8 +168,40 @@ class ChamferLoss(nn.Module):
         #chamfer_loss_mean = torch.mean(chamfer_loss)
         return chamfer_loss_mean
 
-loss_fn = ChamferLoss(device=device, normalized_out=False, consider_out_image_points=True, separate_pointcloud=True)
+class EMDLoss(nn.Module):
+    def __init__(self, device):
+        super(EMDLoss, self).__init__()
+        self.device = device
+        
+    def forward(self, image_pred, image_gt):
+        pointcloud_pred = range_image_to_pointcloud_pytorch(image_pred * kitti_max_distance, device) #[batch, num_points, 4]
+        pointcloud_gt = range_image_to_pointcloud_pytorch(image_gt * kitti_max_distance, device) #[batch, num_points, 4]
+
+        emd = torch.mean(torch.mean(torch.square(torch.cumsum(pointcloud_gt, dim=-1) - torch.cumsum(pointcloud_pred, dim=-1)), dim=-1), dim=1)
+        emd_total_mean = torch.mean(emd, dim=-1)
+
+        return emd_total_mean
+
+class SWDLoss(nn.Module):
+    def __init__(self, device):
+        super(SWDLoss, self).__init__()
+        self.device = device
+        
+    def forward(self, image_pred, image_gt):
+        #pointcloud_pred = range_image_to_pointcloud_pytorch(image_pred * kitti_max_distance, device) #[batch, num_points, 4]
+        #pointcloud_gt = range_image_to_pointcloud_pytorch(image_gt * kitti_max_distance, device) #[batch, num_points, 4]
+        print(image_pred.shape)
+        dist = swd(image_pred, image_gt, device="cuda")
+        print(dist)
+        sys.exit()
+        return emd_total_mean
+
+#loss_fn = ChamferLoss(device=device, normalized_out=False, consider_out_image_points=True, separate_pointcloud=True)
 #loss_fn = nn.L1Loss()
+#loss_fn = SinkhornDistance(eps=0.1, max_iter=100, reduction='mean')
+#loss_fn = emdModule()
+#loss_fn = EMDLoss(device=device)
+loss_fn = SWDLoss(device=device)
 
 ############################## OPTIMIZER - LR SCHEDULER ###############################
 optimizer = torch.optim.Rprop(mlp_net.parameters(), lr=lr)#, etas=(0.5,1.5))
@@ -251,7 +287,26 @@ def train_one_epoch(epoch_index, new_pixel_coords):
             save_ply(pointcloud_pred_filtered_test[0].detach().cpu().numpy(), save_path)
         '''
         # Compute the loss and its gradients
-        loss = loss_fn(pixels, real_pixels, labels_path)
+        #loss = loss_fn(pixels, real_pixels, labels_path)
+    
+        #pointcloud_pred = range_image_to_pointcloud_pytorch(pixels * kitti_max_distance, device)
+        #pointcloud_pred[:,0] = pointcloud_pred[:,0] / pointcloud_pred[:,0].max()
+        #pointcloud_pred[:,1] = pointcloud_pred[:,1] / pointcloud_pred[:,1].max()
+        #pointcloud_pred[:,2] = pointcloud_pred[:,2] / pointcloud_pred[:,2].max()
+        #pointcloud_pred[:,3] = pointcloud_pred[:,3] / pointcloud_pred[:,3].max()
+
+        #pointcloud_gt = range_image_to_pointcloud_pytorch(real_pixels * kitti_max_distance, device)
+        #pointcloud_gt[:,0] = pointcloud_gt[:,0] / pointcloud_gt[:,0].max()
+        #pointcloud_gt[:,1] = pointcloud_gt[:,1] / pointcloud_gt[:,1].max()
+        #pointcloud_gt[:,2] = pointcloud_gt[:,2] / pointcloud_gt[:,2].max()
+        #pointcloud_gt[:,3] = pointcloud_gt[:,3] / pointcloud_gt[:,3].max()
+
+        #loss, P, C = loss_fn(pointcloud_pred, pointcloud_gt)
+        #loss_vector, _ = loss_fn(pointcloud_pred[:,:,:3].to(device), pointcloud_gt[:,:,:3].to(device), 0.005, 50)
+        loss = loss = loss_fn(pixels, real_pixels)
+
+        #loss = SamplesLoss(loss='sinkhorn', debias=False, p=1, blur=1e-3, scaling=0.999, backend='auto')
+        #loss(I1, I2)
         #print(loss)
 
         #for name, param in mlp_net.named_parameters():
@@ -317,8 +372,8 @@ for epoch in range(EPOCHS):
 
             real_vpixels = vhrimgs[:,:,1:vhrimgs.shape[2]-1:2, :vhrimgs.shape[3]]
 
-            #vloss = loss_fn(vpixels, real_vpixels)
-            vloss = loss_fn(vpixels, real_vpixels, vlabels_path)
+            vloss = loss_fn(vpixels, real_vpixels)
+            #vloss = loss_fn(vpixels, real_vpixels, vlabels_path)
             running_vloss += vloss.item()
         avg_vloss = running_vloss / (k + 1)
 
@@ -339,3 +394,8 @@ for epoch in range(EPOCHS):
 
 model_path = os.path.join(save_folder, rf'model_816841_kitti3d_Chamfer_Rprop_ep{epoch_number}.pth')
 torch.save(mlp_net.state_dict(), model_path)
+
+
+
+
+#Arrancó entrenamiento a las 18:53
