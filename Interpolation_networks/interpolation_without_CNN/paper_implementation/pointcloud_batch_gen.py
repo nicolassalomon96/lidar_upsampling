@@ -4,9 +4,11 @@ import torch.nn as nn
 import torch.nn.functional as F
 from tqdm import tqdm
 from pointcloud_utils_functions_v2 import *
+from data_gen import *
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-pointcloud_saved_path = r'D:\Nicolas\Posgrado\Trabajos y Tesis\LIDAR\LIDAR_super_resolution\Complex-YOLO\dataset\kitti\training\velodyne_64_paper'
+#pointcloud_saved_path = r'D:\Nicolas\Posgrado\Trabajos y Tesis\LIDAR\LIDAR_super_resolution\Complex-YOLO\dataset\kitti\training\velodyne_paper_sinCNN'
+pointcloud_saved_path = r'D:\Nicolas\Posgrado\Trabajos y Tesis\LIDAR\Datasets LIDAR\kitti_paper_sin_CNN'
 
 ############################################## RED DE INTERPOLACIÓN PESADA BASADA EN PAPER ####################################################
 class Upsampling_Conv(nn.Module):
@@ -71,13 +73,15 @@ class Upsampling_Conv(nn.Module):
     
     def weight_function(self, kernel, distance_kernel):
         nonzero_pos = [kernel != 0][0].type(torch.int)
-        #print(self.lambda_wi.device, self.distance_kernel.device, kernel.device, nonzero_pos.device)
+        nonzero_pos = nonzero_pos.to(device)
+        #print(self.lambda_wi.device, self.distance_kernel_x2.device, kernel.device, nonzero_pos.device)
         y = torch.exp(-self.lambda_wi*distance_kernel) * (2 / (1 + torch.exp(kernel - torch.min(kernel)))) * nonzero_pos #Solo considero los valores que cumplen la condición de que sean mayores que 0
         return y
 
     def get_NewPixelsValues(self, x):
         windows = F.unfold(x, kernel_size=self.kernel_size, padding=self.padding, stride=self.stride)
         windows = windows.transpose(1, 2) #Obtener los valores de la ventana o kernel ordenados por fila, donde cada fila representa una ventana serializada
+        windows = windows.to(device)
 
         if self.upsamplig_factor == 2:
             #print(self.distance_kernel_up.shape, windows.shape)
@@ -121,55 +125,6 @@ class Upsampling_Conv(nn.Module):
         return f'Lambda_wi = {self.lambda_wi.item()}'
 
 ################################################ GENERACIÓN DE DATASET ######################################################
-def data_augmentation(lrimg, hrimg, dataset=None):
-
-    #Replace all sub-zero and upper max values because it is impossible in range images
-    lrimg[lrimg < kitti_carla_min_range] = 0.0
-    hrimg[hrimg < kitti_carla_min_range] = 0.0
-
-    if dataset == 'kitti':
-        lrimg[lrimg > kitti_max_distance] = 0.0
-        hrimg[hrimg > kitti_max_distance] = 0.0
-
-        #lrimg = np.array(lrimg * (1./kitti_max_distance), dtype=np.float32)
-        #hrimg = np.array(hrimg * (1./kitti_max_distance), dtype=np.float32)
-    
-    elif dataset == 'carla':
-        lrimg[lrimg > carla_max_distance] = 0.0
-        hrimg[hrimg > carla_max_distance] = 0.0
-
-        lrimg = np.array(lrimg * (1./carla_max_distance), dtype=np.float32)
-        hrimg = np.array(hrimg * (1./carla_max_distance), dtype=np.float32)
-
-    lrimg = np.expand_dims(lrimg, axis=0)
-    hrimg = np.expand_dims(hrimg, axis=0)
-    return lrimg, hrimg
-
-def data_generator():
-    velodyne_name = os.listdir(velodyne_folder)
-    for _, url in enumerate(velodyne_name):
-        if url[0:5] == 'drive':
-            dataset = 'kitti'
-        if url[0:4] == 'Town':
-            dataset = 'carla'
-
-        #Get random images
-        train_path = os.path.join(velodyne_folder, url) #hr_folder + '\\' + url
-
-        if train_path[-3:] == 'npy':
-            hrimg = np.load(train_path)
-        elif train_path[-3:] == 'tif':
-            hrimg = io.imread(train_path)
-        else:
-            print("Wrong pointcloud filepath")
-        
-        indexes = range(0, high_res_height, upsampling_ratio)
-        lrimg = hrimg[indexes]
-        lrimg, hrimg = data_augmentation(lrimg, hrimg, dataset)
-
-        yield (lrimg, hrimg)
-
-
 class IterDataset(torch.utils.data.IterableDataset):
     def __init__(self, generator):
         self.generator = generator
@@ -190,18 +145,29 @@ model.to(device)
 
 pointcloud_number = 0
 for i, data in enumerate(tqdm(dataloader)):
-    lrimgs, hrimgs = data
-    lrimgs = lrimgs.to(device)
+    lrimg_distance, hrimg_distance, lrimg_intensity, hrimg_intensity = data
+    lrimg_distance = lrimg_distance.to(device)
+    #lrimg_intensity = lrimg_intensity.to(device)
+    #print(lrimg_intensity[:,:,-1].max())
 
+    ###################################### PREDICCIÓN DE PIXELES DE DISTANCIA #########################################
     # Make predictions for this batch
-    outputs = model(lrimgs)
+    outputs_distance = model(lrimg_distance)
+    #pointcloud_gen_batch_distance = range_image_to_pointcloud_pytorch(outputs_distance, device)
 
-    pointcloud_gen_batch = range_image_to_pointcloud_pytorch(outputs, device)
+    ###################################### PREDICCIÓN DE PIXELES DE INTENSIDAD #########################################
+    # Make predictions for this batch
+    #outputs_intensity = model(lrimg_intensity)
 
-    for pointcloud in pointcloud_gen_batch:
-        save_path = os.path.join(pointcloud_saved_path, f'{str(pointcloud_number).zfill(6)}.bin')
-        save_bin(pointcloud.cpu().detach().numpy(), save_path)
+    for j, range_image in enumerate(outputs_distance):
+    #for j, pointcloud in enumerate(pointcloud_gen_batch_distance):
+        #pointcloud_join = torch.hstack([pointcloud[:,:3], outputs_intensity[j,0,:,:].reshape(-1,1)])
+        #save_path = os.path.join(pointcloud_saved_path, f'{str(pointcloud_number).zfill(6)}.bin')
+        #save_bin(pointcloud_join.cpu().detach().numpy(), save_path)
+        save_path = os.path.join(pointcloud_saved_path, f'{str(pointcloud_number).zfill(6)}.npy')
+        np.save(save_path, range_image[0].cpu().detach().numpy())
         #print(pointcloud.cpu().detach().numpy().shape)
         pointcloud_number += 1
-
+    
+    #sys.exit()
 

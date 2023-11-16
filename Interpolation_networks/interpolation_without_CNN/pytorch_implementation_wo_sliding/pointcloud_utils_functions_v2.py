@@ -303,8 +303,7 @@ def range_image_to_pointcloud(image, v_fov=(-24.9, 2.0), h_fov=(-180, 180)):
     W = image.shape[1]
     dist = image.reshape(1,-1)[0]
 
-    #dist[dist < kitti_carla_min_range] = 0.0
-    dist[dist < 0.0] = 0.0
+    dist[dist < kitti_carla_min_range] = 0.0
 
     proj_x = np.ones((H,1)) * np.arange(0,W,1)  # matriz (W x H) donde cada columna tiene el valor del indice de dicha columna
     proj_x = proj_x.reshape(1,-1)[0]
@@ -439,8 +438,7 @@ def image_downsampling_batch(full_hr_folder_PATH, full_lr_folder_PATH, downsampl
 #Leer pointcloud en formato .bin
 def read_bin(bin_path):
     pointcloud = np.fromfile(bin_path, dtype=np.float32, count=-1).reshape([-1,4]) #Lee el .bin con la nube de puntos y lo lleva a la forma [X,Y,Z,I]
-    non_zero_pointcloud = pointcloud[pointcloud[:,-1] != 0]  #Pointcloud sin puntos que tengan intensidad igual a 0
-    return non_zero_pointcloud
+    return pointcloud
 
 #Leer pointcloud en formato .ply
 def read_ply(ply_path):
