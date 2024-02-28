@@ -1,2 +1,0 @@
-- Misma nube de puntos luego de separarla en 2 (nube de puntos de objetos y nubes de puntos sin objetos), con respecto a la
-original: CORRECTO

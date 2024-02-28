@@ -1,7 +1,0 @@
-Epoch 1 - Train_loss: 302.91464614868164 - Valid_loss: 305.4418182373047 - lr: 0.01 - Tiempo: 22.104951429367066 minutos, 
-Epoch 2 - Train_loss: 302.9146423339844 - Valid_loss: 305.4418029785156 - lr: 0.01 - Tiempo: 21.453656462828317 minutos, 
-Epoch 3 - Train_loss: 302.9146423339844 - Valid_loss: 305.4418182373047 - lr: 0.01 - Tiempo: 21.531902714570364 minutos, 
-Epoch 4 - Train_loss: 302.9146499633789 - Valid_loss: 305.4418182373047 - lr: 0.01 - Tiempo: 21.46313668489456 minutos, 
-Epoch 5 - Train_loss: 302.91464614868164 - Valid_loss: 305.4418029785156 - lr: 0.01 - Tiempo: 21.50627662738164 minutos, 
-Epoch 6 - Train_loss: 302.91465759277344 - Valid_loss: 305.4418029785156 - lr: 0.01 - Tiempo: 21.433022729555766 minutos, 
-Epoch 7 - Train_loss: 302.9146423339844 - Valid_loss: 305.4418029785156 - lr: 0.01 - Tiempo: 21.46756619612376 minutos, 
