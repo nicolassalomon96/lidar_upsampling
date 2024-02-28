@@ -1,10 +1,10 @@
-*En ./checkpoints/complexer_yolo deberá colocarse el archivo de checkpoint generado durante el entrenamiento
-Ejemplo: Model_complexer_yolo_epoch_300.pth
+*Crear ./checkpoints/complexer_yolo y colocar el archivo de checkpoint generado durante el entrenamiento
+Ejemplo: ./checkpoints/complexer_yolo/Model_complexer_yolo_epoch_300.pth
 
 *En ./dataset/kitti deberá colocarse el dataset de detección de objetos 3D de kitti.
 Link de descarga: https://www.cvlibs.net/datasets/kitti/eval_object.php?obj_benchmark=3d
 
-Minimamente debe descargarse:
+Mínimamente debe descargarse:
 	- Imágenes de la cámara izquierda (12GB)
 	- Nube de puntos del LIDAR Velodyne (29GB)
 	- Etiquetas de entrenamiento (5 MB)
@@ -34,10 +34,3 @@ dataset/
 		└──velodyne/
 		     └── Nube de puntos para prueba
 	└──classes_names.txt
-
-*Para observar un análisis detallado del dataset, revisar el directorio ./dataset_analisis
-
-*Como ejemplo para entrenar el modelo ver el notebook: ./train_complex_yolo.ipynb
-
-*Algunos ejemplos del resultado obtenido se encuentran disponibles en el directorio ./results/complexer_yolov4/, se encuentran disponibles
-resultados obtenidos sobre imágenes de prueba así como también, un video con la aplicación en ROS.

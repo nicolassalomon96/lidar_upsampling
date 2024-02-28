@@ -1,0 +1,37 @@
+*En ./dataset deberá colocarse el dataset de detección de objetos 3D de kitti:
+(Link de descarga: https://www.cvlibs.net/datasets/kitti/eval_object.php?obj_benchmark=3d)
+o el dataset generado localmente a evaluar.
+
+El directorio "dataset" deberá tener la siguiente estructura:
+
+dataset/
+  ├──ImageSets/
+	├── train.txt
+       	└── val.txt
+  └──nombre_dataset/
+        ├──training/
+		├──calib/
+		     └── Archivos de calibración de entrenamiento		
+		├──image_2/
+	     		└── Imágenes de entrenamiento de la cámara (solo para la visualización final)
+		├──label_2/
+	     		└── Etiquetas de entrenamiento
+		└──velodyne/
+	     		└── Nube de puntos para entrenamiento
+	└──testing/
+		├──calib/
+		     └── Archivos de calibración de prueba		
+		├──image_2/
+	     		└── Imágenes de prueba de la cámara (solo para la visualización final)
+		└──velodyne/
+	     		└── Nube de puntos para prueba
+
+*Modelos preentrenados disponibles en: https://drive.google.com/drive/folders/1aRpCFxlCIuRysRo-o8BOCJVPCWOYHdUH?usp=drive_link
+
+*PRE_PROCESS DATASET: python pre_process_kitti.py --data_root path/to/dataset_folder
+
+*TRAIN: python train.py --data_root path/to/dataset_folder --batch_size=6
+
+*EVALUATION: python evaluate.py --ckpt path/to/pretrained_model --data_root path/to/dataset_folder
+
+*TEST: python test.py --ckpt path/to/pretrained_model --pc_path path/to/pointcloud_file

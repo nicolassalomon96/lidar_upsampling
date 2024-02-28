@@ -1,0 +1,2 @@
+Se realizaron cambios de acuerdo al pull request (https://github.com/viplix3/Complex-YOLOv4-Pytorch.git)
+del repositorio original de Complex-YOLO para generar los archivos de labels del dataset que se encuentre en la carpeta testing
