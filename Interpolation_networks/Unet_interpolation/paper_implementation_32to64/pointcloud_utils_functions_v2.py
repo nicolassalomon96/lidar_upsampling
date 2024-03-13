@@ -443,11 +443,14 @@ def read_bin(bin_path):
     return pointcloud
 
 #Leer pointcloud en formato .ply
-def read_ply(ply_path):
+def read_ply(ply_path, intensity_channel=False):
     full_pointcloud = PyntCloud.from_file(ply_path)
     pointcloud = full_pointcloud.points.iloc[:,[0,1,2]]
     pointcloud = np.array(pointcloud)
-    return pointcloud
+    if intensity_channel:
+        return np.array(full_pointcloud.points)
+    else:
+        return pointcloud
 
 #Guardar pointcloud como .ply
 def save_ply(pointcloud, save_path):
