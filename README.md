@@ -16,4 +16,4 @@ It contains all the files related to KITTI Evaluation criteria, available on KIT
 **Utils folder:**
 It contains some useful files and notebook used during the writing of the Thesis.
 
-**IMPORTANT:** Pointpillars trained models are private and need to ask for permission in order to see them
+**IMPORTANT:** Pointpillars trained models are private and need to ask for permission in order to see them. Please contact nicolassalomon96@gmail.com
